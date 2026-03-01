@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { PoolClient } from 'pg';
+import { pathToFileURL } from 'url';
 import { DatabaseService } from './database.service';
 
 export type Migration = {
@@ -11,7 +12,7 @@ export type Migration = {
 };
 
 type MigrationModule = {
-  default: new () => Migration;
+  default?: unknown;
 };
 
 @Injectable()
@@ -61,7 +62,9 @@ export class MigrationRunnerService {
     const migrations = await Promise.all(
       migrationFiles.map(async (file) => {
         const modulePath = path.join(migrationsDir, file);
-        const importedModule = (await import(modulePath)) as unknown;
+        const importedModule = (await import(
+          pathToFileURL(modulePath).href
+        )) as unknown;
         const MigrationClass = this.getMigrationClass(importedModule, file);
 
         return new MigrationClass();
@@ -75,19 +78,34 @@ export class MigrationRunnerService {
     importedModule: unknown,
     file: string,
   ): new () => Migration {
-    if (!this.isMigrationModule(importedModule)) {
+    const migrationClass = this.resolveMigrationClass(importedModule);
+    if (!migrationClass) {
       throw new Error(`Invalid migration: ${file}`);
     }
 
-    return importedModule.default;
+    return migrationClass;
   }
 
-  private isMigrationModule(value: unknown): value is MigrationModule {
-    if (!value || typeof value !== 'object') {
-      return false;
+  private resolveMigrationClass(value: unknown): (new () => Migration) | null {
+    if (typeof value === 'function') {
+      return value as new () => Migration;
     }
 
-    return typeof (value as Record<string, unknown>).default === 'function';
+    if (!value || typeof value !== 'object') {
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    if (typeof record.default === 'function') {
+      return record.default as new () => Migration;
+    }
+
+    const nested = record.default as MigrationModule | undefined;
+    if (nested && typeof nested.default === 'function') {
+      return nested.default as new () => Migration;
+    }
+
+    return null;
   }
 
   private async ensureMigrationsTable(client: PoolClient): Promise<void> {
