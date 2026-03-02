@@ -28,9 +28,7 @@ export class MigrationRunnerService {
       await this.ensureMigrationsTable(client);
       const applied = await this.getAppliedMigrations(client);
       const migrations = await this.loadMigrations();
-      const pending = migrations.filter(
-        (migration) => !applied.has(migration.name),
-      );
+      const pending = migrations.filter((migration) => !applied.has(migration.name));
 
       if (pending.length === 0) {
         this.logger.log('No pending migrations');
@@ -39,9 +37,7 @@ export class MigrationRunnerService {
 
       for (const migration of pending) {
         this.logger.log(`Running migration: ${migration.name}`);
-        await this.runMigration(client, migration.name, () =>
-          migration.up(client),
-        );
+        await this.runMigration(client, migration.name, () => migration.up(client));
       }
 
       this.logger.log('Migrations completed');
@@ -53,18 +49,12 @@ export class MigrationRunnerService {
   private async loadMigrations(): Promise<Migration[]> {
     const migrationsDir = path.join(__dirname, 'migrations');
     const files = await fs.readdir(migrationsDir);
-    const migrationFiles = files
-      .filter(
-        (file) => /^\d{14}-.*\.(ts|js)$/.test(file) && !file.endsWith('.d.ts'),
-      )
-      .sort();
+    const migrationFiles = files.filter((file) => /^\d{14}-.*\.(ts|js)$/.test(file) && !file.endsWith('.d.ts')).sort();
 
     const migrations = await Promise.all(
       migrationFiles.map(async (file) => {
         const modulePath = path.join(migrationsDir, file);
-        const importedModule = (await import(
-          pathToFileURL(modulePath).href
-        )) as unknown;
+        const importedModule = (await import(pathToFileURL(modulePath).href)) as unknown;
         const MigrationClass = this.getMigrationClass(importedModule, file);
 
         return new MigrationClass();
@@ -74,10 +64,7 @@ export class MigrationRunnerService {
     return migrations;
   }
 
-  private getMigrationClass(
-    importedModule: unknown,
-    file: string,
-  ): new () => Migration {
+  private getMigrationClass(importedModule: unknown, file: string): new () => Migration {
     const migrationClass = this.resolveMigrationClass(importedModule);
     if (!migrationClass) {
       throw new Error(`Invalid migration: ${file}`);
@@ -119,17 +106,11 @@ export class MigrationRunnerService {
   }
 
   private async getAppliedMigrations(client: PoolClient): Promise<Set<string>> {
-    const result = await client.query<{ name: string }>(
-      'select name from migrations',
-    );
+    const result = await client.query<{ name: string }>('select name from migrations');
     return new Set(result.rows.map((row) => row.name));
   }
 
-  private async runMigration(
-    client: PoolClient,
-    name: string,
-    run: () => Promise<void>,
-  ): Promise<void> {
+  private async runMigration(client: PoolClient, name: string, run: () => Promise<void>): Promise<void> {
     await client.query('begin');
     try {
       await run();

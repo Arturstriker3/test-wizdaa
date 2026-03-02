@@ -12,10 +12,7 @@ export class DatabaseService implements OnModuleDestroy {
     this.pool = new Pool(databaseConfig);
   }
 
-  async query<T extends QueryResultRow>(
-    text: string,
-    params?: unknown[],
-  ): Promise<T[]> {
+  async query<T extends QueryResultRow>(text: string, params?: unknown[]): Promise<T[]> {
     const result = await this.pool.query<T>(text, params);
     return result.rows;
   }

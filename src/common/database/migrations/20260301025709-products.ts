@@ -11,7 +11,6 @@ export default class Migration20260301025709 implements Migration {
         name varchar(120) NOT NULL,
         description text NULL,
         price numeric(12, 2) NOT NULL,
-        currency char(3) NOT NULL DEFAULT 'BRL',
         is_active boolean NOT NULL DEFAULT true,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
